@@ -1,0 +1,21 @@
+{
+  "name": "jeu-ours",
+  "version": "0.1.0",
+  "description": "Jeu 2D : un ours brun mange des individus (HTML5 Canvas, PWA + APK Android via Capacitor).",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node serve.js",
+    "test": "node --test",
+    "build:web": "node scripts/build-web.mjs"
+  },
+  "devDependencies": {
+    "@capacitor/android": "^8.6.0",
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.6.0",
+    "@capacitor/core": "^8.6.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

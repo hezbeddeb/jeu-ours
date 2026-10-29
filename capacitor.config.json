@@ -1,0 +1,8 @@
+{
+  "appId": "com.jeuours.app",
+  "appName": "Jeu de l'ours",
+  "webDir": "www",
+  "android": {
+    "backgroundColor": "#1d2b16"
+  }
+}

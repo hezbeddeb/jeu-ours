@@ -1,0 +1,94 @@
+# Construit l'APK Android et publie le site (jeu web + page de téléchargement) sur GitHub Pages.
+# Prérequis : Settings → Pages → Source = « GitHub Actions ».
+# Signature stable (optionnelle mais conseillée) : secrets ANDROID_KEYSTORE_BASE64,
+# ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD. Sans eux, un APK debug est publié.
+
+name: APK Android + site
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      HAS_KEYSTORE: ${{ secrets.ANDROID_KEYSTORE_BASE64 != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - run: npm ci
+      - run: npm test
+      - run: node scripts/build-web.mjs
+
+      - name: Projet Android
+        run: |
+          npx cap add android
+          npx @capacitor/assets generate --android --assetPath resources --iconBackgroundColor '#5b8c3a' || echo "Icône par défaut utilisée"
+          npx cap sync android
+
+      - name: APK signé (release)
+        if: env.HAS_KEYSTORE == 'true'
+        run: |
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > "$RUNNER_TEMP/release.jks"
+          npx cap build android \
+            --androidreleasetype APK \
+            --signing-type apksigner \
+            --keystorepath "$RUNNER_TEMP/release.jks" \
+            --keystorepass "${{ secrets.ANDROID_KEYSTORE_PASSWORD }}" \
+            --keystorealias "${{ secrets.ANDROID_KEY_ALIAS }}" \
+            --keystorealiaspass "${{ secrets.ANDROID_KEY_PASSWORD }}"
+
+      - name: APK debug (pas de clé de signature configurée)
+        if: env.HAS_KEYSTORE != 'true'
+        working-directory: android
+        run: ./gradlew assembleDebug
+
+      - name: Site + APK
+        run: |
+          mkdir -p site
+          cp -r www/. site/
+          cp telecharger.html site/
+          APK=$(find android/app/build/outputs/apk -name '*.apk' ! -name '*unsigned*' | head -n 1)
+          test -n "$APK" || { echo "Aucun APK trouvé"; exit 1; }
+          cp "$APK" site/jeu-ours.apk
+          ls -la site
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: jeu-ours-apk
+          path: site/jeu-ours.apk
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}telecharger.html
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
