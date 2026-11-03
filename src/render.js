@@ -112,8 +112,135 @@ function drawSpriteOrShape(ctx, entity, x, y, drawShape, rotation = 0) {
   }
 }
 
+const EMOJI_FONT = '"Apple Color Emoji", "Segoe UI Emoji", "Noto Color Emoji", sans-serif';
+const emojiCache = new Map(); // "emoji|taille" -> canvas pré-rendu (plus rapide que fillText à chaque frame)
+
+function emojiImage(emoji, size) {
+  const key = `${emoji}|${size}`;
+  let img = emojiCache.get(key);
+  if (!img && typeof document !== 'undefined') {
+    img = document.createElement('canvas');
+    img.width = img.height = Math.ceil(size * 1.3);
+    const g = img.getContext('2d');
+    g.font = `${size}px ${EMOJI_FONT}`;
+    g.textAlign = 'center';
+    g.textBaseline = 'middle';
+    g.fillText(emoji, img.width / 2, img.height / 2 + size * 0.06);
+    emojiCache.set(key, img);
+  }
+  return img;
+}
+
+function drawEmojiCreature(ctx, c, x, y) {
+  const t = c.type;
+  const size = Math.round(c.radius * 2.3);
+  // Petit sautillement en marchant ; se tourne vers la gauche/droite selon sa direction.
+  const bob = Math.abs(Math.sin(performance.now() / 130 + c.x * 0.01)) * c.radius * 0.18;
+  const flip = Math.cos(c.heading) > 0 ? -1 : 1; // les emojis regardent souvent vers la gauche
+  ctx.save();
+  ctx.translate(x, y - bob);
+  ctx.fillStyle = 'rgba(0,0,0,0.22)';
+  ctx.beginPath();
+  ctx.ellipse(0, c.radius * 0.85 + bob, c.radius * 0.8, c.radius * 0.28, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.scale(flip * (t.emojiScaleX ?? 1), 1);
+  if (t.emojiBehind) {
+    // Balai couché sous la sorcière (l'emoji 🧹 est en diagonale : on le remet à l'horizontale).
+    const behind = emojiImage(t.emojiBehind, Math.round(size * 1.35));
+    ctx.save();
+    ctx.translate(0, c.radius * 0.55);
+    ctx.rotate(Math.PI / 4);
+    ctx.drawImage(behind, -behind.width / 2, -behind.height / 2);
+    ctx.restore();
+  }
+  const img = emojiImage(t.emoji, size);
+  ctx.drawImage(img, -img.width / 2, -img.height / 2);
+  ctx.restore();
+}
+
+// Dessins spéciaux (quand aucun emoji ne convient).
+const CUSTOM_DRAWINGS = {
+  // Grosse dame vue de face : robe très large, bras potelés, chignon et rouge à lèvres.
+  grosseDame(ctx, c, x, y) {
+    const r = c.radius;
+    const bob = Math.abs(Math.sin(performance.now() / 160 + c.x * 0.01)) * r * 0.12;
+    ctx.save();
+    ctx.translate(x, y - bob);
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    ctx.beginPath();
+    ctx.ellipse(0, r * 1.0 + bob, r * 1.25, r * 0.3, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.lineWidth = 2;
+    ctx.strokeStyle = 'rgba(0,0,0,0.45)';
+    // Jambes.
+    ctx.fillStyle = '#e8b48a';
+    ctx.fillRect(-r * 0.5, r * 0.6, r * 0.3, r * 0.4);
+    ctx.fillRect(r * 0.2, r * 0.6, r * 0.3, r * 0.4);
+    // Bras.
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.ellipse(side * r * 1.15, r * 0.05, r * 0.28, r * 0.5, side * 0.4, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    // Robe très large.
+    ctx.fillStyle = '#d6336c';
+    ctx.beginPath();
+    ctx.ellipse(0, r * 0.15, r * 1.1, r * 0.75, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    // Pois blancs sur la robe.
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    for (const [px, py] of [[-0.5, 0], [0.1, 0.35], [0.55, -0.05], [-0.15, -0.3], [-0.6, 0.45], [0.6, 0.45]]) {
+      ctx.beginPath();
+      ctx.arc(px * r, py * r + r * 0.15, r * 0.09, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    // Tête, joues, chignon.
+    ctx.fillStyle = '#5a3418';
+    ctx.beginPath();
+    ctx.arc(0, -r * 1.05, r * 0.28, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#f0c29a';
+    ctx.beginPath();
+    ctx.arc(0, -r * 0.7, r * 0.42, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.fillStyle = '#5a3418';
+    ctx.beginPath();
+    ctx.arc(0, -r * 0.82, r * 0.42, Math.PI, 0);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(230,90,110,0.55)';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.arc(side * r * 0.24, -r * 0.6, r * 0.09, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#111';
+    for (const side of [-1, 1]) {
+      ctx.beginPath();
+      ctx.arc(side * r * 0.14, -r * 0.72, r * 0.05, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.fillStyle = '#c2185b';
+    ctx.beginPath();
+    ctx.ellipse(0, -r * 0.52, r * 0.12, r * 0.06, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  },
+};
+
 function drawCreature(ctx, c, x, y) {
   drawSpriteOrShape(ctx, c, x, y, () => {
+    const custom = CUSTOM_DRAWINGS[c.type.draw];
+    if (custom) {
+      custom(ctx, c, x, y);
+      return;
+    }
+    if (c.type.emoji) {
+      drawEmojiCreature(ctx, c, x, y);
+      return;
+    }
     ctx.fillStyle = c.color;
     ctx.beginPath();
     ctx.arc(x, y, c.radius, 0, Math.PI * 2);
@@ -129,14 +256,14 @@ function drawCreature(ctx, c, x, y) {
   });
   // Nom au-dessus de l'individu (rouge clair + « ! » quand il fuit).
   const label = c.fleeing ? `${c.name} !` : c.name;
-  ctx.font = 'bold 13px sans-serif';
+  ctx.font = 'bold 17px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'bottom';
-  ctx.lineWidth = 3;
-  ctx.strokeStyle = 'rgba(0,0,0,0.75)';
-  ctx.strokeText(label, x, y - c.radius - 4);
+  ctx.lineWidth = 4;
+  ctx.strokeStyle = 'rgba(0,0,0,0.8)';
+  ctx.strokeText(label, x, y - c.radius - 8);
   ctx.fillStyle = c.fleeing ? '#ffb3a8' : '#fff';
-  ctx.fillText(label, x, y - c.radius - 4);
+  ctx.fillText(label, x, y - c.radius - 8);
 }
 
 function drawBear(ctx, bear, x, y) {
@@ -290,10 +417,12 @@ export function render(ctx, state, view, extras = {}) {
   const cam = computeCamera(state, viewW, viewH);
   drawGround(ctx, state, cam, viewW, viewH);
   drawScenery(ctx, state, cam, viewW, viewH);
+  extras.effects?.drawBelow(ctx, cam, extras.now);
   for (const c of state.creatures) {
     if (visible(c.x, c.y, c.radius + 20, cam, viewW, viewH)) drawCreature(ctx, c, c.x - cam.x, c.y - cam.y);
   }
   drawBear(ctx, state.bear, state.bear.x - cam.x, state.bear.y - cam.y);
+  extras.effects?.drawAbove(ctx, cam, extras.now);
   drawHud(ctx, state, viewW);
   if (state.over) drawGameOver(ctx, state, viewW, viewH, extras.best ?? { best: null, isNew: false });
   else drawJoystick(ctx, extras.joystick);

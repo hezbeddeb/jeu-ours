@@ -133,6 +133,7 @@ export function createGame(options = {}) {
     duration: options.duration ?? GAME_DURATION,
     timeLeft: options.duration ?? GAME_DURATION,
     over: false,
+    events: [], // { type: 'eat', x, y, name } : vidé par l'affichage (son, sang)
   };
   // Chaque personnage apparaît une fois (puis en boucle si on en demande plus).
   const types = state.creatureTypes;
@@ -235,6 +236,7 @@ function handleCollisions(state) {
       state.creatures.splice(i, 1);
       state.score += 1;
       eaten.push(c.type);
+      state.events.push({ type: 'eat', x: c.x, y: c.y, name: c.name });
     }
   }
   // Le même personnage réapparaît ailleurs : chaque nom reste unique sur la map.

@@ -290,3 +290,16 @@ test('chaque personnage est présent une fois, et réapparaît sous le même nom
   assert.equal(s.score, 1);
   assert.deepEqual(s.creatures.map((c) => c.name).sort(), names, 'toujours un exemplaire de chaque nom');
 });
+
+test('Manger : un évènement « eat » est émis à la position de l\'individu (son + sang)', () => {
+  const s = newGame({ creatureCount: 2 });
+  const target = s.creatures[0];
+  target.x = s.bear.x + 5;
+  target.y = s.bear.y;
+  const name = target.name;
+  step(s, 0.016, STILL);
+  assert.equal(s.events.length, 1);
+  assert.equal(s.events[0].type, 'eat');
+  assert.equal(s.events[0].name, name);
+  assert.ok(Math.abs(s.events[0].x - s.bear.x) < 40);
+});

@@ -3,10 +3,19 @@
 import { createGame, step, clampDelta, saveBestScore, loadBestScore } from './logic.js';
 import { createInput } from './input.js';
 import { render, replayButtonRect } from './render.js';
+import { createEffects } from './effects.js';
+import { createSound } from './sound.js';
 
 const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 const input = createInput(canvas);
+const effects = createEffects();
+const sound = createSound();
+
+// Le son n'est autorisé qu'après un geste du joueur.
+for (const type of ['pointerdown', 'keydown']) {
+  window.addEventListener(type, () => sound.unlock(), { capture: true });
+}
 
 const view = { width: 0, height: 0, dpr: 1 };
 
@@ -39,6 +48,7 @@ resize();
 function restart() {
   state = createGame();
   best = { best: loadBestScore(getStorage()), isNew: false };
+  effects.clear();
   input.reset();
   input.setEnabled(true);
   lastTime = null;
@@ -78,8 +88,17 @@ function frame(now) {
     step(state, dt, input.getDirection());
     if (state.over) onGameOver();
   }
+  const t = now / 1000;
+  for (const ev of state.events) {
+    if (ev.type === 'eat') {
+      effects.blood(ev.x, ev.y, t);
+      sound.eat();
+    }
+  }
+  state.events.length = 0;
+  effects.update(dt, t);
   ctx.setTransform(view.dpr, 0, 0, view.dpr, 0, 0);
-  render(ctx, state, view, { joystick: input.joystick, best });
+  render(ctx, state, view, { joystick: input.joystick, best, effects, now: t });
   requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);

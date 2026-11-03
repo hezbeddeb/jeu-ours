@@ -1,7 +1,7 @@
 // Service worker : met en cache les fichiers du jeu pour jouer hors ligne.
 // Changez CACHE_VERSION à chaque modification des fichiers pour forcer la mise à jour.
 
-const CACHE_VERSION = 'jeu-ours-v4';
+const CACHE_VERSION = 'jeu-ours-v5';
 const NETWORK_TIMEOUT_MS = 3000;
 const ASSETS = [
   './',
@@ -16,6 +16,8 @@ const ASSETS = [
   './src/input.js',
   './src/render.js',
   './src/characters.js',
+  './src/effects.js',
+  './src/sound.js',
 ];
 
 self.addEventListener('install', (event) => {
